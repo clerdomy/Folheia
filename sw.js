@@ -2,7 +2,7 @@
    Mude VERSAO a cada publicação para que o app avise "Nova versão disponível". */
 'use strict';
 
-const VERSAO = 'folheia-v1';
+const VERSAO = 'folheia-v2';
 const CACHES = {
   app: `${VERSAO}-app`,             // esqueleto do app e PDF.js
   fontes: `${VERSAO}-fontes`,       // Google Fonts
@@ -127,11 +127,16 @@ async function navegacao(req) {
 
 const HOSTS_TRADUCAO = ['translate.googleapis.com', 'api.mymemory.translated.net', 'api.dictionaryapi.dev'];
 const CAPA = /^\/cache\/epub\/\d+\/pg\d+\.cover\.[a-z]+\.jpg$/i;
+// endpoint próprio dos livros (servidor.mjs ou função na Vercel), relativo à pasta do app
+const API = new URL('./api/', self.location.href).pathname;
 
 function rota(req, url, evento) {
   const host = url.hostname;
 
-  if (url.origin === self.location.origin) return cacheFirst(req, CACHES.app);
+  if (url.origin === self.location.origin) {
+    // /api/livro nunca entra no cache: o app já guarda o texto dos livros no IndexedDB
+    return url.pathname.startsWith(API) ? null : cacheFirst(req, CACHES.app);
+  }
   if (url.href.startsWith(PDFJS)) return cacheFirst(req, CACHES.app);
 
   if (host === 'fonts.googleapis.com') return staleWhileRevalidate(req, CACHES.fontes, evento, { max: MAX_FONTES, prazo: 10000 });

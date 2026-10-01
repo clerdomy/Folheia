@@ -2,7 +2,7 @@
 
 Leitor de livros em inglês com páginas em 3D, feito para quem está aprendendo o idioma. Clique numa palavra para ver a tradução e ouvir a pronúncia. Clique duas vezes numa frase para traduzi-la inteira. Você pode ler seus próprios PDFs e TXT ou escolher um livro gratuito na biblioteca, organizada do nível básico ao avançado.
 
-O leitor inteiro é um único arquivo HTML (`index.html`), com CSS e JavaScript puros. Não há framework nem etapa de build. Ele também pode ser instalado como app e funciona offline (veja [App instalável (PWA)](#app-instalável-pwa)).
+O leitor inteiro é um único arquivo HTML (`index.html`), com CSS e JavaScript puros, sem framework nem etapa de build. Ao lado dele há um servidor pequeno em Node (`servidor.mjs`) e uma função para a Vercel (`api/livro.js`) que baixam os livros do Project Gutenberg, porque o site deles bloqueia o download direto pelo navegador (veja [Download dos livros](#download-dos-livros)). O app também pode ser instalado e funciona offline (veja [App instalável (PWA)](#app-instalável-pwa)).
 
 ---
 
@@ -60,27 +60,26 @@ O leitor inteiro é um único arquivo HTML (`index.html`), com CSS e JavaScript 
 
 ## Como rodar
 
-### Opção 1: abrir direto
+### Opção 1: servidor local (recomendado)
 
-Dê dois cliques em `index.html`. O leitor, a tradução e a voz funcionam assim. A instalação e o modo offline não funcionam aberto como arquivo: para isso, use a opção 2.
-
-### Opção 2: servidor local (recomendado)
-
-Alguns navegadores limitam recursos quando a página é aberta como arquivo (`file://`). Com um servidor local tudo se comporta como num site de verdade.
+Precisa do [Node.js](https://nodejs.org/) 18 ou mais novo. Não instala nada: o servidor usa só a biblioteca padrão.
 
 ```bash
-# com Node.js
-npx serve .
-
-# ou com Python
-python -m http.server 8000
+npm start
+# Folheia rodando em http://localhost:3000
 ```
 
-Depois acesse `http://localhost:3000` (serve) ou `http://localhost:8000` (Python).
+Abra http://localhost:3000. O servidor entrega o app e baixa os livros da biblioteca pelo endpoint `/api/livro` (veja [Download dos livros](#download-dos-livros)). `npm run dev` reinicia sozinho quando um arquivo muda. Para usar outra porta: `PORT=3001 npm start` (no PowerShell: `$env:PORT=3001; npm start`).
+
+### Opção 2: abrir direto
+
+Dê dois cliques em `index.html`. O leitor, a tradução, a voz e os seus PDFs funcionam assim. Dois recursos não funcionam com o arquivo aberto direto: a instalação como app e o modo offline. E o download dos livros da biblioteca passa a usar as rotas antigas (proxies públicos), que falham com frequência.
 
 ### Publicar na internet
 
-Envie a pasta inteira (`index.html`, `manifest.webmanifest`, `sw.js` e `icons/`) para qualquer hospedagem de site estático, como GitHub Pages, Netlify, Vercel ou Cloudflare Pages. Não precisa de configuração adicional. Todos os caminhos são relativos, então o app também funciona numa subpasta (ex.: `usuario.github.io/folheia/`).
+**Vercel (recomendado):** importe o repositório em [vercel.com](https://vercel.com) ou rode `npx vercel` na pasta. Não precisa de comando de build nem de pasta de saída. A raiz é servida como site estático e `api/livro.js` vira a função `/api/livro` sozinha. Os detalhes estão em [Na Vercel](#na-vercel).
+
+**Outras hospedagens estáticas** (GitHub Pages, Netlify, Cloudflare Pages): envie `index.html`, `manifest.webmanifest`, `sw.js` e `icons/`. O app funciona, inclusive em subpasta (ex.: `usuario.github.io/folheia/`), mas sem a função o download dos livros usa as rotas antigas. Para ter a função nessas plataformas, veja [Em outra hospedagem](#em-outra-hospedagem).
 
 ---
 
@@ -100,7 +99,7 @@ O Folheia pode ser instalado como app e abre sem internet.
 O service worker só funciona em HTTPS ou em `localhost`. Abrindo o arquivo direto (`file://`) ou por IP da rede local, ele não é registrado.
 
 ```bash
-npx serve .
+npm start
 # abra http://localhost:3000
 ```
 
@@ -126,7 +125,7 @@ O ícone maskable (Android) mantém o desenho dentro do círculo central de 80%,
 ### Publicar uma versão nova
 
 1. Altere os arquivos.
-2. No topo do `sw.js`, mude a constante `VERSAO` (por exemplo, de `'folheia-v1'` para `'folheia-v2'`).
+2. No topo do `sw.js`, mude a constante `VERSAO` (por exemplo, de `'folheia-v2'` para `'folheia-v3'`).
 3. Publique.
 
 Quem estiver com o app aberto vê o aviso **Nova versão disponível**. Ao tocar em **Atualizar**, a página recarrega uma vez com a versão nova. Os caches da versão anterior são apagados, mas as traduções já consultadas passam para a versão nova.
@@ -156,7 +155,7 @@ Sem mudar `VERSAO`, o navegador continua servindo os arquivos antigos do cache.
 | Capas do Gutenberg | Cache primeiro, até 80 capas |
 | Gutendex (catálogo) | Rede primeiro, cache como reserva |
 | Tradução e dicionário | Rede primeiro, cache como reserva, até 500 itens |
-| Texto dos livros e proxies | Não guarda: o app já guarda os livros no IndexedDB |
+| Texto dos livros (`/api/livro`, Gutenberg e proxies) | Não guarda: o app já guarda os livros no IndexedDB |
 
 As capas chegam como respostas opacas, e o Chrome conta vários MB por item na cota do site. Por isso o limite de 80.
 
@@ -197,14 +196,102 @@ Todos são gratuitos e nenhum exige chave de acesso.
 | [Free Dictionary API](https://dictionaryapi.dev/) | Fonética, definições e áudio nativo | Somente inglês |
 | Web Speech API | Voz sintetizada | Do próprio navegador; a qualidade varia |
 | [Gutendex](https://gutendex.com/) | Catálogo e busca de livros | Funciona direto no navegador |
-| [Project Gutenberg](https://www.gutenberg.org/) | Texto e capas dos livros | Veja a seção sobre CORS abaixo |
+| [Project Gutenberg](https://www.gutenberg.org/) | Texto e capas dos livros | O texto passa pelo endpoint próprio `/api/livro`; veja [Download dos livros](#download-dos-livros) |
 | Google Fonts | Fontes Literata e Instrument Sans | Há fontes reserva se não carregar |
+
+---
+
+## Download dos livros
+
+### Por que precisa de um servidor
+
+O texto dos livros vem do site do Project Gutenberg. Só que o navegador não deixa uma página baixar arquivos de outro site a menos que esse site autorize (é a regra chamada CORS), e o Gutenberg não autoriza. Por isso o download precisa passar por um endereço do próprio Folheia: o navegador pede ao Folheia, e o Folheia pede ao Gutenberg.
+
+Esse endereço é `GET /api/livro?id=<número>`. Ele existe em dois lugares, com a mesma lógica (`lib/gutenberg.mjs`):
+
+| Onde | Arquivo | Cache dos livros |
+| --- | --- | --- |
+| No seu computador | `servidor.mjs` | Em disco, na pasta `.cache/livros/` |
+| Na Vercel | `api/livro.js` | Na CDN da Vercel, por 30 dias |
+
+O endpoint só aceita o número do livro, de 1 a 999999, nunca um endereço. Assim ele não serve de proxy para outros sites. Além disso ele:
+
+- tenta quatro endereços do Gutenberg, em ordem;
+- segue redirecionamentos, mas só aceita a resposta se o destino final for `gutenberg.org`;
+- desiste de arquivos com mais de 15 MB, sem baixar o resto;
+- recusa páginas HTML e textos com menos de 1.500 caracteres;
+- desiste de cada tentativa depois de 20 segundos;
+- envia o `User-Agent` `Folheia/1.0 (leitor de estudo)`.
+
+Respostas:
+
+- `200` com `text/plain; charset=utf-8`, `Cache-Control: public, max-age=2592000` e o cabeçalho `X-Folheia-Fonte` (`cache` ou `gutenberg`);
+- erro em JSON, `{ "erro": "mensagem" }`, com status `400` (número inválido), `404` (o livro não existe), `502` (o Gutenberg está com problema) ou `504` (demorou demais).
+
+### No seu computador
+
+```bash
+npm start      # servidor em http://localhost:3000
+npm run dev    # igual, reiniciando quando um arquivo muda
+npm test       # testes de lib/gutenberg.mjs
+```
+
+Os livros baixados ficam em `.cache/livros/<id>.txt` e são servidos de lá nas próximas vezes, para poupar o servidor do Gutenberg. Apague a pasta para baixar de novo. Ela está no `.gitignore`.
+
+O servidor não entrega o próprio código (`servidor.mjs`, `lib/`, `api/`, `scripts/`, `package.json`), a pasta `.cache/`, `node_modules/` nem arquivos ocultos.
+
+### Na Vercel
+
+1. Suba o projeto para o GitHub e importe na Vercel, ou rode `npx vercel` na pasta.
+2. Deixe o comando de build e a pasta de saída vazios. A raiz vira o site estático e `api/livro.js` vira a função `/api/livro`.
+3. `vercel.json` dá 30 segundos para a função. `.vercelignore` deixa de fora o servidor local, os scripts e os testes.
+
+A CDN da Vercel guarda cada livro por 30 dias (`s-maxage`). Nas próximas chamadas, o cabeçalho `x-vercel-cache: HIT` mostra que veio do cache e a função nem roda.
+
+A lógica compartilhada fica em `lib/`, e não em `api/`, porque na Vercel todo arquivo dentro de `api/` vira uma função.
+
+### Em outra hospedagem
+
+O módulo `lib/gutenberg.mjs` serve em qualquer plataforma. Só muda a casca:
+
+**Netlify Functions** (`netlify/functions/livro.mjs`):
+
+```js
+import { buscarLivro, ErroLivro } from '../../lib/gutenberg.mjs';
+export const config = { path: '/api/livro' };
+export default async req => {
+  try {
+    const { texto } = await buscarLivro(new URL(req.url).searchParams.get('id'));
+    return new Response(texto, { headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'public, max-age=2592000' } });
+  } catch (e) {
+    const conhecido = e instanceof ErroLivro;
+    return Response.json({ erro: conhecido ? e.message : 'Erro inesperado.' }, { status: conhecido ? e.status : 502 });
+  }
+};
+```
+
+**Cloudflare Pages Functions** (`functions/api/livro.js`): o mesmo corpo, exportado como `export async function onRequestGet({ request })`. Para guardar o resultado por 30 dias, use `caches.default`.
+
+Hospedagens só de arquivos estáticos, como o GitHub Pages, não rodam funções. Nelas o leitor percebe que `/api/livro` não existe e usa as rotas antigas.
+
+### Como o leitor escolhe a rota
+
+`fetchBookText(id)`, em `index.html`:
+
+1. Se o livro já está no IndexedDB, usa de lá. Nada é baixado.
+2. Se a página veio por `http:` ou `https:`, tenta `./api/livro?id=<id>` com 25 segundos de prazo.
+   - Veio o texto: guarda no IndexedDB e abre.
+   - Veio um erro JSON `404`: mostra a mensagem e para, porque o livro não existe.
+   - Veio `404` em HTML, ou a hospedagem devolveu o `index.html`, ou deu falha de rede: anota que o endpoint não existe e, até recarregar a página, nem tenta de novo.
+3. Rotas antigas: o Gutenberg direto (bloqueado por CORS na maioria dos navegadores) e os proxies públicos corsproxy.io, allorigins e codetabs.
+
+Quando tudo falha, a ficha do livro mostra o link para baixar o `.txt` e abrir pelo botão **Abrir arquivo**, e lembra de rodar `npm start` quando o endpoint não existe.
 
 ---
 
 ## Armazenamento no navegador
 
-Nada é enviado para servidor. Tudo fica no navegador da pessoa.
+Nada do que a pessoa lê ou salva é enviado para servidor. Tudo fica no navegador. A única coisa que chega a um servidor do Folheia é o número do livro a baixar.
 
 **localStorage** (dados pequenos):
 
@@ -234,6 +321,17 @@ A chave `f<hash>` é uma impressão digital (cyrb53) do texto do arquivo. O mesm
 
 ## Estrutura do código
 
+| Arquivo | Função |
+| --- | --- |
+| `index.html` | O leitor inteiro: CSS, HTML e JavaScript |
+| `manifest.webmanifest`, `sw.js`, `icons/` | App instalável e modo offline |
+| `servidor.mjs` | Servidor local: entrega o app e o endpoint `/api/livro` |
+| `lib/gutenberg.mjs` | Download do texto no Project Gutenberg, usado pelo servidor e pela função |
+| `lib/gutenberg.test.mjs` | Testes do módulo acima (`npm test`) |
+| `api/livro.js` | A função `/api/livro` na Vercel |
+| `vercel.json`, `.vercelignore` | Tempo máximo da função e arquivos que não vão para a Vercel |
+| `scripts/gerar-icones.mjs` | Gera os PNGs dos ícones |
+
 O leitor está em `index.html`, nesta ordem:
 
 1. **CSS:** as variáveis de cor e tamanho ficam em `:root`. Os temas Sépia e Noite redefinem essas variáveis em `html[data-theme="..."]`.
@@ -253,7 +351,7 @@ O leitor está em `index.html`, nesta ordem:
 | Ficha de tradução | `openWord()`, `openSentence()`, `openText()` |
 | Vocabulário | `toggleVocab()`, `renderVocab()` |
 | Texto do Gutenberg | `cleanGutenberg()`, `findStart()`, `estimateLevel()` |
-| Cache e download | `idb`, `fetchBookText()` |
+| Cache e download | `idb`, `fetchViaApi()`, `fetchBookText()` |
 | Biblioteca | `LEVELS`, `renderLib()`, `searchCatalog()`, `readBook()` |
 | Início | `reopenLast()`, `init()` |
 | App instalável (PWA) | registro do `sw.js`, aviso de nova versão, botão "Instalar app", atalhos `?abrir=`, `launchQueue`, avisos de offline |
@@ -262,7 +360,7 @@ O leitor está em `index.html`, nesta ordem:
 
 ## Personalização
 
-- **Trocar o serviço de tradução:** edite a função `translate()`. Ela só precisa devolver `{ text, dict, src }`. Para produção, a API oficial do Google Cloud Translation ou a DeepL são mais estáveis, mas precisam de um servidor para esconder a chave.
+- **Trocar o serviço de tradução:** edite a função `translate()`. Ela só precisa devolver `{ text, dict, src }`. Para produção, a API oficial do Google Cloud Translation ou a DeepL são mais estáveis, mas precisam de um servidor para esconder a chave. Uma função como `api/livro.js` serve para isso.
 - **Adicionar livros às prateleiras:** inclua itens no array `LEVELS`, com o número do livro no Gutenberg (`id`), título, autor e uma descrição curta (`blurb`).
 - **Trocar o livro de demonstração:** edite a constante `DEMO`. Linhas que começam com `# ` viram títulos de capítulo.
 - **Mudar cores e fontes:** altere as variáveis em `:root` e o link do Google Fonts no `<head>`.
@@ -274,11 +372,8 @@ O leitor está em `index.html`, nesta ordem:
 
 ## Limitações conhecidas
 
-- **Download dos livros do Gutenberg:**
-  - O site do Gutenberg não libera acesso direto pelo navegador (bloqueio de CORS). Por isso `fetchBookText()` tenta proxies públicos gratuitos.
-  - Esses proxies mudam de regras com frequência. O corsproxy.io, por exemplo, passou a funcionar de graça só em ambientes de desenvolvimento.
-  - Quando todas as rotas falham, a ficha do livro mostra um link para baixar o `.txt` e abrir pelo botão **Abrir arquivo**.
-  - A solução definitiva é um proxy próprio (veja o roteiro abaixo).
+- **Download dos livros sem o servidor próprio:** com o arquivo aberto por dois cliques, ou numa hospedagem sem a função, o leitor depende dos proxies públicos, que mudam de regras com frequência. Quando todos falham, a ficha do livro mostra o link para baixar o `.txt` e abrir pelo botão **Abrir arquivo**. Com `npm start` ou na Vercel isso não acontece.
+- **Livros muito grandes na Vercel:** a resposta de uma função é limitada a 4,5 MB quando não é transmitida em partes. Quase nenhum livro do Gutenberg chega perto disso (Moby Dick tem 1,2 MB), mas coletâneas como as obras completas de Shakespeare podem falhar lá. No servidor local não há esse limite.
 - **PDFs digitalizados** (feitos só de imagem) não têm texto para extrair. Eles precisam passar por OCR antes.
 - **PDFs com duas colunas** podem sair com o texto um pouco fora de ordem.
 - **Só inglês:** tradução, voz, dicionário e nível estimado assumem que o livro está em inglês. Um livro em outro idioma abre, mas as ferramentas de aprendizado não funcionam bem.
@@ -289,12 +384,12 @@ O leitor está em `index.html`, nesta ordem:
 
 ## Roteiro
 
-- [ ] **Proxy próprio** (Cloudflare Worker gratuito) para baixar os livros do Gutenberg sem depender de serviços de terceiros.
+- [x] **Download próprio dos livros** (servidor local e função na Vercel), sem depender de proxies de terceiros.
 - [ ] **Suporte a outros idiomas:** detectar o idioma do livro e ajustar tradução, voz e hifenização.
 - [ ] **Modo áudio e vídeo:**
   - transcrever podcasts e vídeos no próprio navegador com Whisper (Transformers.js) ou importar legendas `.srt` e `.vtt`;
   - acompanhar o texto em tempo real, com repetição e câmera lenta da voz original.
-- [ ] **Perguntas com IA** sobre qualquer trecho, por exemplo "por que ele usou *would* aqui?", usando o mesmo proxy próprio.
+- [ ] **Perguntas com IA** sobre qualquer trecho, por exemplo "por que ele usou *would* aqui?", com uma função como a de `api/livro.js` guardando a chave.
 - [ ] **Sincronização entre aparelhos** com login (Firebase ou Supabase).
 
 ---

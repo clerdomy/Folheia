@@ -2,8 +2,11 @@
   "name": "folheia",
   "private": true,
   "type": "module",
+  "engines": { "node": ">=18" },
   "scripts": {
-    "icones": "node scripts/gerar-icones.mjs",
-    "servir": "npx serve ."
+    "start": "node servidor.mjs",
+    "dev": "node --watch servidor.mjs",
+    "test": "node --test",
+    "icones": "node scripts/gerar-icones.mjs"
   }
 }

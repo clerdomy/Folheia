@@ -340,6 +340,7 @@ a.chip{text-decoration:none}
 .bd-err{margin-top:16px;font-size:13.5px;line-height:1.55;background:var(--slip-line);padding:12px 14px;border-radius:8px}
 .bd-err[hidden]{display:none}
 .bd-err a{color:inherit;font-weight:600}
+.bd-err code{font-size:.92em;padding:1px 5px;border-radius:4px;background:color-mix(in srgb,var(--slip-ink) 8%,transparent)}
 .tp-lib{margin-top:1.4em;font-family:var(--ui-font);font-size:.72em;font-weight:600;border:0;background:var(--brass);color:var(--brass-ink);border-radius:20px;padding:.65em 1.3em;cursor:pointer}
 @media (max-width:640px){
   .lib-head{padding:14px 16px 4px;gap:12px}.lib-close{position:absolute;top:12px;right:12px}.tabs{width:100%}.lib-foot{font-size:11px;padding:6px 12px 10px}.lib-head h2{font-size:25px}.lib-body{padding:4px 16px 28px}
@@ -1765,9 +1766,44 @@ const idb = (() => {
   };
 })();
 
+// endpoint próprio (servidor.mjs no computador ou função na hospedagem): resolve o bloqueio de CORS do Gutenberg.
+// null = ainda não testado nesta sessão; false = não existe aqui (ou o app foi aberto como arquivo)
+let apiPropria = /^https?:$/.test(location.protocol) ? null : false;
+async function fetchViaApi(id) {
+  showLoader('Baixando o livro…', 0.08);
+  const ctrl = new AbortController(), timer = setTimeout(() => ctrl.abort(), 25000);
+  try {
+    const r = await fetch(`./api/livro?id=${id}`, { signal: ctrl.signal, headers: { Accept: 'text/plain, application/json' } });
+    const tipo = r.headers.get('content-type') || '';
+    if (/\bjson\b/.test(tipo)) {
+      // o endpoint existe e respondeu com erro. 404 = o livro não existe: não adianta tentar as outras rotas
+      apiPropria = true;
+      const j = await r.json().catch(() => ({}));
+      if (r.status === 404) throw Object.assign(new Error(j.erro || 'Livro não encontrado no Project Gutenberg.'), { daApi: true });
+      return null;
+    }
+    if (r.ok && /text\/plain/.test(tipo)) {
+      const txt = await r.text();
+      if (txt.length > 1500 && !/^\s*<(!doctype|html)/i.test(txt)) { apiPropria = true; return txt; }
+    }
+    // 404 em HTML, ou a hospedagem devolveu o index.html no lugar: não há endpoint aqui
+    apiPropria = false;
+    return null;
+  } catch (e) {
+    if (e.daApi) throw e;
+    // timeout: o endpoint pode existir e só estar lento. Falha de rede com internet: não existe
+    if (e.name !== 'AbortError' && navigator.onLine) apiPropria = false;
+    return null;
+  } finally { clearTimeout(timer); }
+}
 async function fetchBookText(id) {
   const cached = await idb.get('g' + id);
   if (cached) return cached;
+  if (apiPropria !== false) {
+    const txt = await fetchViaApi(id);
+    if (txt) { idb.set('g' + id, txt); return txt; }
+  }
+  // rotas antigas: acesso direto (bloqueado por CORS na maioria dos navegadores) e proxies públicos
   const src = `https://www.gutenberg.org/cache/epub/${id}/pg${id}.txt`;
   const routes = [
     src,
@@ -1999,9 +2035,12 @@ async function readBook(it) {
     console.error(e);
     if (err) {
       err.hidden = false;
-      err.innerHTML = `Não consegui baixar o texto automaticamente. Isso acontece quando o site do Gutenberg ou as rotas alternativas estão fora do ar.
+      // resposta do endpoint próprio (ex.: livro inexistente): mostra como veio
+      if (e && e.daApi) err.textContent = e.message;
+      else err.innerHTML = `Não consegui baixar o texto automaticamente. Isso acontece quando o site do Gutenberg ou as rotas alternativas estão fora do ar.
         Você pode <a href="https://www.gutenberg.org/cache/epub/${it.id}/pg${it.id}.txt" target="_blank" rel="noopener">abrir o arquivo de texto</a>, salvar com Ctrl+S
-        e carregar pelo botão <b>Abrir arquivo</b>. O leitor reconhece o formato do Gutenberg e limpa o texto sozinho.`;
+        e carregar pelo botão <b>Abrir arquivo</b>. O leitor reconhece o formato do Gutenberg e limpa o texto sozinho.${apiPropria === false
+          ? ' Se estiver usando no seu computador, rode <code>npm start</code> na pasta do projeto e abra <a href="http://localhost:3000">http://localhost:3000</a>.' : ''}`;
     }
   } finally { hideLoader(); }
 }
