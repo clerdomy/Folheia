@@ -210,7 +210,3 @@ Tudo está em `leitor-ingles-3d.html`, nesta ordem:
 
 - Os livros da biblioteca são obras em domínio público disponibilizadas pelo [Project Gutenberg](https://www.gutenberg.org/). "Project Gutenberg" é marca registrada da Project Gutenberg Literary Archive Foundation. Este projeto não é afiliado nem endossado por ela.
 - A história de demonstração, *The Keeper of Small Lights*, foi escrita especialmente para este projeto.
-
-## Licença
-
-Defina a licença do projeto antes de publicá-lo. A [MIT](https://choosealicense.com/licenses/mit/) é uma escolha comum para projetos abertos.
