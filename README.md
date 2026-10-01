@@ -2,7 +2,7 @@
 
 Leitor de livros em inglês com páginas em 3D, feito para quem está aprendendo o idioma. Clique numa palavra para ver a tradução e ouvir a pronúncia. Clique duas vezes numa frase para traduzi-la inteira. Você pode ler seus próprios PDFs e TXT ou escolher um livro gratuito na biblioteca, organizada do nível básico ao avançado.
 
-O projeto inteiro é um único arquivo HTML, com CSS e JavaScript puros. Não há framework, etapa de build nem servidor obrigatório.
+O leitor inteiro é um único arquivo HTML (`index.html`), com CSS e JavaScript puros. Não há framework nem etapa de build. Ele também pode ser instalado como app e funciona offline (veja [App instalável (PWA)](#app-instalável-pwa)).
 
 ---
 
@@ -50,13 +50,19 @@ O projeto inteiro é um único arquivo HTML, com CSS e JavaScript puros. Não h�
 - Os livros ficam guardados no navegador e abrem mesmo sem internet.
 - O mesmo arquivo é reconhecido mesmo se for renomeado.
 
+### App instalável
+
+- Instala no celular e no computador, com ícone próprio e janela sem barra do navegador.
+- Abre sem internet e reabre o último livro.
+- No Chrome e no Edge do computador, PDFs e TXT podem ser abertos direto pelo sistema com "Abrir com > Folheia".
+
 ---
 
 ## Como rodar
 
 ### Opção 1: abrir direto
 
-Dê dois cliques em `leitor-ingles-3d.html`. O leitor, a tradução e a voz funcionam assim.
+Dê dois cliques em `index.html`. O leitor, a tradução e a voz funcionam assim. A instalação e o modo offline não funcionam aberto como arquivo: para isso, use a opção 2.
 
 ### Opção 2: servidor local (recomendado)
 
@@ -70,11 +76,94 @@ npx serve .
 python -m http.server 8000
 ```
 
-Depois acesse `http://localhost:8000/leitor-ingles-3d.html`.
+Depois acesse `http://localhost:3000` (serve) ou `http://localhost:8000` (Python).
 
 ### Publicar na internet
 
-Renomeie o arquivo para `index.html` e envie para qualquer hospedagem de site estático, como GitHub Pages, Netlify, Vercel ou Cloudflare Pages. Não precisa de configuração adicional.
+Envie a pasta inteira (`index.html`, `manifest.webmanifest`, `sw.js` e `icons/`) para qualquer hospedagem de site estático, como GitHub Pages, Netlify, Vercel ou Cloudflare Pages. Não precisa de configuração adicional. Todos os caminhos são relativos, então o app também funciona numa subpasta (ex.: `usuario.github.io/folheia/`).
+
+---
+
+## App instalável (PWA)
+
+O Folheia pode ser instalado como app e abre sem internet.
+
+| Arquivo | Função |
+| --- | --- |
+| `manifest.webmanifest` | Nome, ícones, cores, atalhos (Biblioteca e Meu vocabulário) e abertura de PDF/TXT pelo sistema |
+| `sw.js` | Service worker: guarda o app no aparelho e decide o que vem da rede ou do cache |
+| `icons/` | `icon.svg` e `icon-maskable.svg` (fontes) e os PNGs gerados a partir deles |
+| `scripts/gerar-icones.mjs` | Gera os PNGs com a biblioteca `sharp` |
+
+### Testar localmente
+
+O service worker só funciona em HTTPS ou em `localhost`. Abrindo o arquivo direto (`file://`) ou por IP da rede local, ele não é registrado.
+
+```bash
+npx serve .
+# abra http://localhost:3000
+```
+
+No Chrome, abra o DevTools e vá em **Application**:
+
+- **Manifest:** mostra os ícones e, em "Installability", qualquer problema que impeça a instalação.
+- **Service workers:** deve aparecer `sw.js` como *activated*. Marque "Update on reload" enquanto estiver mexendo no código, para não ficar preso numa versão antiga.
+- **Cache storage:** lista os caches `folheia-v1-*`.
+
+Para testar offline, marque **Offline** na aba **Network** e recarregue a página.
+
+### Gerar os ícones
+
+Os PNGs já estão em `icons/`. Para gerá-los de novo depois de editar `icon.svg` ou `icon-maskable.svg`:
+
+```bash
+npm i -D sharp
+npm run icones
+```
+
+O ícone maskable (Android) mantém o desenho dentro do círculo central de 80%, para não ser cortado por nenhum formato de ícone. Para conferir, use [maskable.app](https://maskable.app/editor).
+
+### Publicar uma versão nova
+
+1. Altere os arquivos.
+2. No topo do `sw.js`, mude a constante `VERSAO` (por exemplo, de `'folheia-v1'` para `'folheia-v2'`).
+3. Publique.
+
+Quem estiver com o app aberto vê o aviso **Nova versão disponível**. Ao tocar em **Atualizar**, a página recarrega uma vez com a versão nova. Os caches da versão anterior são apagados, mas as traduções já consultadas passam para a versão nova.
+
+Sem mudar `VERSAO`, o navegador continua servindo os arquivos antigos do cache.
+
+### O que funciona offline
+
+| Funciona | Precisa de internet |
+| --- | --- |
+| Abrir o app e reabrir o último livro na página onde parou | Traduzir palavras e frases ainda não consultadas |
+| Ler os livros da estante (do Gutenberg e os seus PDFs e TXT) | Buscar no acervo e baixar livros novos |
+| Abrir PDFs e TXT novos (o PDF.js fica guardado) | Definições e fonética de palavras novas |
+| Traduções, fonética e definições já consultadas (até 500) | "Voz nativa" (gravações do dicionário) |
+| Vocabulário, exportação em CSV, ajustes e temas | Capas que ainda não foram vistas |
+| Voz do navegador, se o sistema tiver vozes instaladas no aparelho | |
+| Capas já vistas (até 80) | |
+
+### O que o service worker guarda
+
+| Requisição | Estratégia |
+| --- | --- |
+| Páginas (navegação) | Rede primeiro; offline, usa o `index.html` guardado |
+| Arquivos do app e PDF.js | Cache primeiro (pré-carregados na instalação) |
+| Google Fonts (CSS) | Usa o cache e atualiza em segundo plano |
+| Google Fonts (arquivos de fonte) | Cache primeiro |
+| Capas do Gutenberg | Cache primeiro, até 80 capas |
+| Gutendex (catálogo) | Rede primeiro, cache como reserva |
+| Tradução e dicionário | Rede primeiro, cache como reserva, até 500 itens |
+| Texto dos livros e proxies | Não guarda: o app já guarda os livros no IndexedDB |
+
+As capas chegam como respostas opacas, e o Chrome conta vários MB por item na cota do site. Por isso o limite de 80.
+
+### Instalar
+
+- **Chrome e Edge (computador e Android):** botão **Instalar app** na barra superior.
+- **iPhone e iPad:** no Safari, toque em **Compartilhar** e depois em **Adicionar à Tela de Início**. O app mostra essa dica uma vez.
 
 ---
 
@@ -126,6 +215,7 @@ Nada é enviado para servidor. Tudo fica no navegador da pessoa.
 | `leitor-estante` | Livros da estante, com progresso e nível |
 | `leitor-pos:<chave>` | Índice da primeira palavra visível de cada livro |
 | `leitor-last` | Chave do último livro aberto |
+| `leitor-pwa-dica-ios` | Se a dica de instalação do iPhone e iPad já foi mostrada |
 
 **IndexedDB** (banco `leitor-livros`, tabela `books`):
 
@@ -133,6 +223,8 @@ Nada é enviado para servidor. Tudo fica no navegador da pessoa.
 | --- | --- |
 | `g<id>` | Texto completo de um livro do Gutenberg (ex.: `g1342`) |
 | `f<hash>` | Texto extraído de um PDF ou TXT enviado pela pessoa |
+
+**Cache Storage** (service worker): caches `folheia-<versão>-app`, `-fontes`, `-capas`, `-catalogo` e `-traducoes`. Veja [O que o service worker guarda](#o-que-o-service-worker-guarda).
 
 A posição de leitura é salva como **índice de palavra**, e não como número de página. Por isso ela continua correta quando as páginas são remontadas em outro tamanho de tela ou de letra.
 
@@ -142,7 +234,7 @@ A chave `f<hash>` é uma impressão digital (cyrb53) do texto do arquivo. O mesm
 
 ## Estrutura do código
 
-Tudo está em `leitor-ingles-3d.html`, nesta ordem:
+O leitor está em `index.html`, nesta ordem:
 
 1. **CSS:** as variáveis de cor e tamanho ficam em `:root`. Os temas Sépia e Noite redefinem essas variáveis em `html[data-theme="..."]`.
 2. **HTML:** barra superior, palco com o livro, ficha de tradução, gavetas de vocabulário e ajustes, biblioteca.
@@ -164,6 +256,7 @@ Tudo está em `leitor-ingles-3d.html`, nesta ordem:
 | Cache e download | `idb`, `fetchBookText()` |
 | Biblioteca | `LEVELS`, `renderLib()`, `searchCatalog()`, `readBook()` |
 | Início | `reopenLast()`, `init()` |
+| App instalável (PWA) | registro do `sw.js`, aviso de nova versão, botão "Instalar app", atalhos `?abrir=`, `launchQueue`, avisos de offline |
 
 ---
 

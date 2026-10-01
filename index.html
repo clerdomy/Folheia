@@ -4,6 +4,16 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Leitor de inglês</title>
+<!-- app instalável (PWA) -->
+<link rel="manifest" href="./manifest.webmanifest">
+<meta name="theme-color" content="#173027" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0B1913" media="(prefers-color-scheme: dark)">
+<link rel="icon" href="./icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="./icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Folheia">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Literata:ital,opsz,wght@0,7..72,400;0,7..72,500;0,7..72,600;1,7..72,400;1,7..72,500&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
@@ -241,6 +251,11 @@ html.flat .book{transform:none}
 /* ---------- avisos e carregamento ---------- */
 .toast{position:fixed;left:50%;bottom:calc(26px + env(safe-area-inset-bottom));transform:translate(-50%,16px);background:var(--slip);color:var(--slip-ink);padding:11px 16px;border-radius:10px;font-size:14px;box-shadow:0 12px 30px -8px rgba(0,0,0,.5);opacity:0;transition:opacity .2s,transform .2s;z-index:90;max-width:calc(100vw - 32px);pointer-events:none}
 .toast.show{opacity:1;transform:translate(-50%,0)}
+/* aviso com botões (nova versão, dica do iPhone): fica acima do toast comum e aceita clique */
+.toast.acao{display:flex;align-items:center;flex-wrap:wrap;gap:8px 12px;bottom:calc(80px + env(safe-area-inset-bottom));line-height:1.45}
+.toast.acao.show{pointer-events:auto}
+.toast.acao .acoes{display:flex;gap:6px;margin-left:auto}
+.toast.acao .chip.forte{background:var(--brass);border-color:var(--brass);color:var(--brass-ink)}
 .loader{position:fixed;inset:0;z-index:80;display:grid;place-items:center;background:rgba(4,10,8,.55)}
 .loader[hidden]{display:none}
 .loader-card{background:var(--slip);color:var(--slip-ink);border-radius:12px;padding:20px 22px;width:min(340px,calc(100vw - 40px));font-size:14px}
@@ -349,6 +364,11 @@ body.single .nav.prev{left:calc(50% - 60px)}
 body.single .nav.next{left:calc(50% + 16px)}
 body.single .hint{display:none}
 @media (prefers-reduced-motion:reduce){.book,.drawer,.pop,.toast{transition:none}}
+/* app instalado: sem tela cheia nem botão de instalar; a área segura do topo vem do padding do body */
+#instalarBtn[hidden]{display:none}
+/* no celular a barra não tem espaço: enquanto o botão de instalar aparece, a marca sai */
+@media (max-width:540px){body:has(#instalarBtn:not([hidden])) .brand{display:none}}
+@media (display-mode:standalone){#fsBtn,#instalarBtn{display:none}}
 </style>
 </head>
 <body>
@@ -363,6 +383,7 @@ body.single .hint{display:none}
     <input type="range" id="pgRange" min="0" max="0" value="0" aria-label="Ir para a página">
   </div>
   <div class="bar-right">
+    <button class="btn" id="instalarBtn" title="Instalar o Folheia como app" aria-label="Instalar app" hidden><span data-ic="install"></span><span class="lbl">Instalar app</span></button>
     <button class="btn" id="libBtn" title="Biblioteca de livros gratuitos"><span data-ic="library"></span><span class="lbl">Biblioteca</span></button>
     <button class="btn" id="openBtn" title="Abrir um PDF ou TXT do seu computador" aria-label="Abrir arquivo"><span data-ic="upload"></span><span class="lbl">Abrir arquivo</span></button>
     <input type="file" id="file" accept=".pdf,.txt,application/pdf,text/plain" hidden>
@@ -476,6 +497,7 @@ body.single .hint{display:none}
 <div class="loader" id="loader" hidden><div class="loader-card"><p id="loaderText">Abrindo…</p><div class="track"><div class="fillbar" id="loaderFill"></div></div></div></div>
 <div class="drop" id="drop" hidden>Solte o arquivo para abrir o livro</div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
+<div class="toast acao" id="aviso" role="status" aria-live="polite"></div>
 
 <script>
 (() => {
@@ -511,7 +533,8 @@ const I = {
   trash: svg('<path d="M4 7h16M9 7V4.5h6V7M6 7l1 13h10l1-13"/>'),
   download: svg('<path d="M12 4v11m0 0-4-4m4 4 4-4M4 20h16"/>'),
   library: svg('<path d="M4.5 4h3.5v16H4.5zM10 4h3.5v16H10z"/><path d="m15.6 5.2 3.3-.9 3.1 15.2-3.3.9z"/>'),
-  search: svg('<circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.2-4.2"/>')
+  search: svg('<circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.2-4.2"/>'),
+  install: svg('<rect x="5" y="3" width="14" height="18" rx="2.5"/><path d="M12 7.5v7m0 0-3-3m3 3 3-3M9.5 18h5"/>')
 };
 const injectIcons = (root = document) => $$('[data-ic]', root).forEach(el => { el.innerHTML = I[el.dataset.ic] || ''; el.style.display = 'contents'; });
 
@@ -1800,6 +1823,7 @@ const LEVELS = [
 ];
 const TOPICS = [['', 'Mais lidos'], ['children', 'Infantil'], ['adventure', 'Aventura'], ['detective', 'Mistério'], ['science fiction', 'Ficção científica'], ['fantasy', 'Fantasia'], ['short stories', 'Contos'], ['horror', 'Terror'], ['humor', 'Humor'], ['love stories', 'Romance']];
 
+const MSG_OFFLINE = 'Você está offline. Os livros da sua estante e o vocabulário continuam funcionando. Tradução de palavras novas e a busca na biblioteca precisam de internet.';
 const lib = { tab: 'levels', topic: '', q: '', next: null, results: [], searched: false, loading: false, byKey: new Map(), current: null };
 const SHELF_MAX = 30;
 // estante: entradas antigas (só com id do Gutenberg) ganham chave e tipo
@@ -1868,6 +1892,8 @@ function updateSearchStatus(msg) {
 }
 async function searchCatalog(reset) {
   if (lib.loading) return;
+  // offline: avisa em vez de buscar; a busca roda sozinha quando a conexão voltar
+  if (!navigator.onLine) { updateSearchStatus(MSG_OFFLINE); const m = $('#libMore'); if (m) m.hidden = true; return; }
   let url;
   if (reset) {
     lib.results = []; lib.next = null;
@@ -2090,7 +2116,119 @@ async function init() {
     clearTimeout(fontTimer); fontTimer = setTimeout(() => applyLayout(true), 200);
   });
 }
-init();
+const pronto = init();
+
+/* ================= app instalável (PWA) ================= */
+const ehStandalone = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+
+// aviso com botões, no mesmo visual do toast; só some quando a pessoa escolhe
+const avisoEl = $('#aviso');
+avisoEl.inert = true;
+function aviso(msg, botoes) {
+  avisoEl.innerHTML = `<span>${esc(msg)}</span><span class="acoes">${botoes.map((b, i) => `<button class="chip${b.forte ? ' forte' : ''}" data-i="${i}">${esc(b.texto)}</button>`).join('')}</span>`;
+  avisoEl.onclick = e => {
+    const b = e.target.closest('[data-i]'); if (!b) return;
+    avisoEl.classList.remove('show'); avisoEl.inert = true;
+    const acao = botoes[+b.dataset.i].acao; acao && acao();
+  };
+  avisoEl.inert = false; avisoEl.classList.add('show');
+}
+
+/* ---------- service worker e atualização ---------- */
+if ('serviceWorker' in navigator) {
+  let atualizando = false;
+  const avisarVersaoNova = sw => aviso('Nova versão disponível.', [
+    { texto: 'Atualizar', forte: true, acao: () => {
+      atualizando = true;
+      aviso('Atualizando…', []);
+      sw.postMessage({ tipo: 'SKIP_WAITING' });
+    } },
+    { texto: 'Agora não' }
+  ]);
+  addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js', { scope: './' }).then(reg => {
+      // só avisa quando já existe uma versão controlando a página (não na primeira instalação)
+      if (reg.waiting && navigator.serviceWorker.controller) avisarVersaoNova(reg.waiting);
+      reg.addEventListener('updatefound', () => {
+        const novo = reg.installing; if (!novo) return;
+        novo.addEventListener('statechange', () => {
+          if (novo.state === 'installed' && navigator.serviceWorker.controller) avisarVersaoNova(novo);
+        });
+      });
+      // no app instalado a página fica aberta por dias: procura versão nova ao voltar para ele
+      document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') reg.update().catch(() => {}); });
+    }).catch(e => console.warn('Service worker não registrado:', e));
+  });
+  // recarrega uma única vez, e só quando a pessoa pediu para atualizar
+  let recarregou = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!atualizando || recarregou) return;
+    recarregou = true; location.reload();
+  });
+}
+
+/* ---------- botão "Instalar app" ---------- */
+const instalarBtn = $('#instalarBtn');
+let pedidoInstalacao = null;
+addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  pedidoInstalacao = e;
+  instalarBtn.hidden = ehStandalone();
+});
+instalarBtn.addEventListener('click', async () => {
+  if (!pedidoInstalacao) return;
+  pedidoInstalacao.prompt();
+  try { await pedidoInstalacao.userChoice; } catch {}
+  // o pedido só pode ser usado uma vez; o navegador manda outro se a pessoa recusar
+  pedidoInstalacao = null; instalarBtn.hidden = true;
+});
+addEventListener('appinstalled', () => {
+  pedidoInstalacao = null; instalarBtn.hidden = true;
+  toast('Folheia instalado. Abra pelo ícone na tela inicial.', 4500);
+});
+matchMedia('(display-mode: standalone)').addEventListener('change', e => { if (e.matches) instalarBtn.hidden = true; });
+
+/* ---------- dica de instalação no iPhone e iPad ---------- */
+// o Safari do iOS não tem beforeinstallprompt: explica o caminho manual, uma única vez
+const ehIOS = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+if (ehIOS && !ehStandalone() && !store.get('leitor-pwa-dica-ios', false)) {
+  pronto.then(() => setTimeout(() => {
+    aviso('Para instalar o Folheia, toque em Compartilhar e depois em Adicionar à Tela de Início.', [{ texto: 'Entendi', forte: true }]);
+    store.set('leitor-pwa-dica-ios', true);
+  }, 4000));
+}
+
+/* ---------- atalhos do manifest (?abrir=) ---------- */
+const params = new URLSearchParams(location.search);
+const abrir = params.get('abrir');
+if (abrir) {
+  params.delete('abrir');
+  const q = params.toString();
+  history.replaceState(history.state, '', location.pathname + (q ? '?' + q : '') + location.hash);
+  pronto.then(() => {
+    if (abrir === 'biblioteca') openLib();
+    else if (abrir === 'vocabulario') $('#vocabBtn').click();
+  });
+}
+
+/* ---------- abrir PDF e TXT pelo sistema (Chrome e Edge no computador) ---------- */
+if ('launchQueue' in window) {
+  launchQueue.setConsumer(async ({ files }) => {
+    if (!files || !files.length) return;
+    // espera o início terminar, para o último livro não abrir por cima do arquivo
+    await pronto;
+    closeLib(); closeDrawers();
+    openFile(await files[0].getFile());
+  });
+}
+
+/* ---------- modo offline ---------- */
+addEventListener('offline', () => toast(MSG_OFFLINE, 8000));
+addEventListener('online', () => {
+  toast('Conexão de volta.', 2200);
+  if ($('#lib').classList.contains('open') && lib.tab === 'search') lib.results.length ? updateSearchStatus() : searchCatalog(true);
+});
+if (!navigator.onLine) pronto.then(() => setTimeout(() => toast(MSG_OFFLINE, 8000), 3600));
 })();
 </script>
 </body>

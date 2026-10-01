@@ -1,0 +1,46 @@
+{
+  "name": "Folheia: leitor de inglês",
+  "short_name": "Folheia",
+  "description": "Leia livros em inglês com páginas em 3D. Toque numa palavra para ver a tradução e ouvir a pronúncia.",
+  "lang": "pt-BR",
+  "dir": "ltr",
+  "id": "./",
+  "start_url": "./?origem=app",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "theme_color": "#173027",
+  "background_color": "#0B1913",
+  "categories": ["education", "books"],
+  "icons": [
+    { "src": "./icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "./icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "./icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "./icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ],
+  "shortcuts": [
+    {
+      "name": "Biblioteca",
+      "short_name": "Biblioteca",
+      "description": "Livros gratuitos por nível, busca e estante",
+      "url": "./?abrir=biblioteca",
+      "icons": [{ "src": "./icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "Meu vocabulário",
+      "short_name": "Vocabulário",
+      "description": "Palavras e frases salvas",
+      "url": "./?abrir=vocabulario",
+      "icons": [{ "src": "./icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    }
+  ],
+  "file_handlers": [
+    {
+      "action": "./",
+      "accept": {
+        "application/pdf": [".pdf"],
+        "text/plain": [".txt"]
+      }
+    }
+  ]
+}

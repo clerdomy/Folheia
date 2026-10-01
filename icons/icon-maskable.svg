@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- versão maskable: fundo sem cantos e desenho reduzido para caber na zona segura (círculo de 80%) -->
+  <rect width="512" height="512" fill="#173027"/>
+  <g transform="translate(256 256) scale(.78) translate(-256 -256)">
+    <path d="M250 170C206 144 150 134 92 140V342C150 336 206 346 250 372Z" fill="#C9A04E"/>
+    <path d="M262 170C306 144 362 134 420 140V306L384 340C342 338 300 348 262 372Z" fill="#C9A04E"/>
+    <path d="M420 306L384 340L390 312Z" fill="#8C6E30"/>
+    <g stroke="#173027" stroke-width="10" stroke-linecap="round" fill="none" opacity=".55">
+      <path d="M124 186C160 184 196 192 224 206"/>
+      <path d="M124 222C160 220 196 228 224 242"/>
+      <path d="M124 258C160 256 196 264 224 278"/>
+      <path d="M288 206C316 192 352 184 388 186"/>
+      <path d="M288 242C316 228 352 220 388 222"/>
+      <path d="M288 278C316 264 340 258 364 257"/>
+    </g>
+  </g>
+</svg>

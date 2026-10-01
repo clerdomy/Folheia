@@ -1,0 +1,9 @@
+{
+  "name": "folheia",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "icones": "node scripts/gerar-icones.mjs",
+    "servir": "npx serve ."
+  }
+}
